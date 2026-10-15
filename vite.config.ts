@@ -8,7 +8,11 @@ const base = process.env.BASE_PATH || '/';
 export default defineConfig({
   base,
   build: { chunkSizeWarningLimit: 1500 },
-  define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '1.0.0') },
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? '1.0.0'),
+    // when this version was built (= when it was published)
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     VitePWA({

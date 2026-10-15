@@ -2008,3 +2008,16 @@ button.list-row:active {
   font-size: 15px;
   font-weight: 600;
 }
+
+.setting-value {
+  margin-left: auto;
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  text-align: right;
+}
+
+.setting-row.static:has(.setting-value) {
+  min-height: 56px;
+}

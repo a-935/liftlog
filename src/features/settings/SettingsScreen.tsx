@@ -14,6 +14,14 @@ import { haptic } from '../../lib/haptics';
 import { playChime, unlockAudio } from '../../lib/sound';
 import { isLogged } from '../../lib/stats';
 
+const LAST_UPDATED = new Date(__BUILD_TIME__).toLocaleString('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
 const STEP = 15;
 const MIN = 30;
 const MAX = 600;
@@ -152,7 +160,21 @@ export function SettingsScreen() {
         </div>
       </Section>
 
-      <p className="about">LiftLog · works offline · v{__APP_VERSION__}</p>
+      <Section title="About">
+        <div className="card settings-card">
+          <div className="setting-row static">
+            <span className="setting-title">App version</span>
+            <span className="setting-value">v{__APP_VERSION__}</span>
+          </div>
+          <div className="setting-row static">
+            <span className="setting-title">Last updated</span>
+            <span className="setting-value">{LAST_UPDATED}</span>
+          </div>
+          <p className="setting-sub">Updates install by themselves when you open the app with internet.</p>
+        </div>
+      </Section>
+
+      <p className="about">LiftLog · works offline</p>
     </div>
   );
 }
