@@ -12,9 +12,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // New versions install silently and are used on the next launch (no reload mid-workout).
+      // New versions take over at once; src/lib/pwa.ts reloads when it can't interrupt anything.
       registerType: 'autoUpdate',
-      injectRegister: 'script-defer',
+      injectRegister: false, // registered in src/lib/pwa.ts (update checks on resume)
       includeManifestIcons: false, // already matched by globPatterns
       manifest: {
         id: base,
@@ -38,6 +38,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png}'],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         cleanupOutdatedCaches: true,
+        // Activate new versions right away; iOS rarely closes every window of a Home Screen app.
+        skipWaiting: true,
+        clientsClaim: true,
       },
     }),
   ],

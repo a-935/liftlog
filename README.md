@@ -39,8 +39,9 @@ If the first run happened before step 4 and failed, open it in **Actions** and c
 
 ### Updating the app later
 
-Commit and `git push` — GitHub rebuilds automatically. The app downloads the new version in the
-background and uses it the next time you open it (it never reloads mid-workout).
+Commit and `git push` — GitHub rebuilds automatically. The app checks for a new version every
+time it comes to the foreground and switches to it by itself (never while you are typing or on
+the finish screen; your data is saved continuously). The version is shown at the bottom of Settings.
 
 ---
 
