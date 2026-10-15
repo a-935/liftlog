@@ -71,7 +71,7 @@ export function SettingsScreen() {
     <div className="screen has-tabs">
       <PageHeader title="Settings" />
 
-      <Section title="Rest stopwatch">
+      <Section title="Rest timer">
         <div className="card settings-card">
           <button
             className="setting-row"
@@ -85,7 +85,7 @@ export function SettingsScreen() {
           >
             <span className="setting-text">
               <span className="setting-title">Soft sound during rest</span>
-              <span className="setting-sub">One gentle chime at the time you pick. Off by default.</span>
+              <span className="setting-sub">The rest timer starts by itself when you tick a set. This adds one gentle chime at the time you pick.</span>
             </span>
             <span className={`switch${settings.restSoundEnabled ? ' on' : ''}`} aria-hidden="true" />
           </button>

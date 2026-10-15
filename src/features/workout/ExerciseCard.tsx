@@ -6,6 +6,7 @@ import { NumberField } from '../../ui/NumberField';
 import { Icon } from '../../ui/Icon';
 import { formatClock, formatKg, formatSet } from '../../lib/format';
 import { haptic } from '../../lib/haptics';
+import { unlockAudio } from '../../lib/sound';
 
 export interface CardActions {
   onVideo: (item: WorkoutItem) => void;
@@ -18,9 +19,11 @@ interface Props extends CardActions {
   item: WorkoutItem;
   active: boolean;
   prSetIds: Set<string>;
+  /** Rest chime is on: unlock audio while we still have the tap. */
+  soundOn: boolean;
 }
 
-export function ExerciseCard({ item, active, prSetIds, onVideo, onMenu, onSetMenu, onRpe }: Props) {
+export function ExerciseCard({ item, active, prSetIds, soundOn, onVideo, onMenu, onSetMenu, onRpe }: Props) {
   const { exercise, sets, lastTime } = item;
   const suggestion = (i: number) => {
     if (!lastTime?.length) return { kg: null, reps: null };
@@ -78,6 +81,7 @@ export function ExerciseCard({ item, active, prSetIds, onVideo, onMenu, onSetMen
           index={i}
           suggestion={suggestion(i)}
           isPR={prSetIds.has(set.id)}
+          soundOn={soundOn}
           onMenu={() => onSetMenu(set, i)}
           onRpe={() => onRpe(set)}
         />
@@ -101,11 +105,12 @@ interface SetRowProps {
   index: number;
   suggestion: { kg: number | null; reps: number | null };
   isPR: boolean;
+  soundOn: boolean;
   onMenu: () => void;
   onRpe: () => void;
 }
 
-function SetRow({ set, index, suggestion, isPR, onMenu, onRpe }: SetRowProps) {
+function SetRow({ set, index, suggestion, isPR, soundOn, onMenu, onRpe }: SetRowProps) {
   const repsRef = useRef<HTMLInputElement>(null);
   const showHint = !set.done;
 
@@ -120,6 +125,7 @@ function SetRow({ set, index, suggestion, isPR, onMenu, onRpe }: SetRowProps) {
     const hasReps = !!(set.reps ?? suggestion.reps);
     if (hasReps) haptic();
     else repsRef.current?.focus();
+    if (soundOn) unlockAudio();
     if ((await completeSet(set.id, suggestion)) && !hasReps) repsRef.current?.blur();
   };
 

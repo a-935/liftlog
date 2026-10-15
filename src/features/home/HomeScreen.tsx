@@ -97,7 +97,9 @@ export function HomeScreen() {
                   <span className="list-title">{relativeDate(workout.date)}</span>
                   <span className="list-sub">{plural(exercises, 'exercise')}</span>
                 </span>
-                <Icon name="chevron" size={20} />
+                <span className="edit-pill">
+                  <Icon name="edit" size={16} /> Edit
+                </span>
               </button>
             ))}
           </div>

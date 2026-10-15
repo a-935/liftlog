@@ -76,9 +76,12 @@ src/
   bodyweight (0 kg) = most reps ever. An exercise's very first session is the baseline (no PR).
 - **A set counts** when it's ticked and has reps. On "Save workout", unticked sets and
   exercises with no logged sets are dropped (the summary offers to count filled-in sets as done).
-- **Rest stopwatch** stores its start timestamp on the workout, so it's correct after the phone
-  locks or the app is closed. Stopping it (or ticking the next set) saves the time on the
-  last ticked set.
+- **Rest timer** starts automatically when a set is ticked and stops when the next set is
+  ticked or "+ Set" is tapped; the time is saved on the set it started from. Unticking that set
+  cancels it, and a rest still running at "Finish" is discarded. It stores its start timestamp,
+  so it stays correct after the phone locks or the app is closed.
+- **Finishing** asks for confirmation. A finished workout can be edited from History, and the
+  latest one can be resumed if it was ended by accident.
 - **Removing an exercise** only archives it (hidden from lists); its history and charts stay.
 
 ### Adding cloud sync later

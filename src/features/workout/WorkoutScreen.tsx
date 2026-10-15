@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import type { Exercise, SetEntry } from '../../db/schema';
+import { db, type Exercise, type SetEntry } from '../../db/schema';
 import { getSettings, loadWorkoutView, type WorkoutItem } from '../../db/queries';
 import {
   addExerciseToWorkout,
@@ -8,6 +8,7 @@ import {
   deleteWorkout,
   moveWorkoutExercise,
   removeWorkoutExercise,
+  reopenWorkout,
   updateSet,
   updateWorkout,
 } from '../../db/repo';
@@ -24,6 +25,7 @@ import { formatDate } from '../../lib/dates';
 import { formatDuration, formatSet, workoutTitle } from '../../lib/format';
 import { useNow } from '../../lib/hooks';
 import { haptic } from '../../lib/haptics';
+import { byWorkoutKeyDesc } from '../../lib/stats';
 
 const RPE_VALUES = [6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
 
@@ -33,6 +35,12 @@ export function WorkoutScreen({ id }: { id: string }) {
   const toast = useToast();
   const confirm = useConfirm();
   const now = useNow(30_000);
+  // A finished workout can be resumed if it's the latest one and nothing else is in progress.
+  const resumable = useLiveQuery(async () => {
+    const all = await db.workouts.toArray();
+    if (all.some((w) => w.finishedAt === null)) return false;
+    return all.sort(byWorkoutKeyDesc)[0]?.id === id;
+  }, [id]);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -90,6 +98,33 @@ export function WorkoutScreen({ id }: { id: string }) {
     toast({ message: active ? 'Workout discarded' : 'Workout deleted', undo });
   };
 
+  const finish = async () => {
+    haptic();
+    const ok = await confirm({
+      title: 'Finish this workout?',
+      message: 'You’ll see a summary before it’s saved, and you can still edit it later from History.',
+      confirmLabel: 'Yes, finish workout',
+    });
+    if (ok) navigate(`/summary/${workout.id}`);
+  };
+
+  const resume = async () => {
+    haptic();
+    setMenuOpen(false);
+    await reopenWorkout(workout.id);
+    toast({ message: 'Workout resumed' });
+  };
+
+  // "after Bench Press · set 2" for the rest display
+  const restLabel = (() => {
+    const setId = workout.restTimer?.setId;
+    for (const item of items) {
+      const i = item.sets.findIndex((s) => s.id === setId);
+      if (i >= 0) return `${item.exercise.name} · set ${i + 1}`;
+    }
+    return null;
+  })();
+
   return (
     <div className={`screen workout-screen${active ? ' has-dock' : ''}`}>
       <TopBar
@@ -118,6 +153,13 @@ export function WorkoutScreen({ id }: { id: string }) {
         }
       />
 
+      {!active && (
+        <div className="edit-banner">
+          <Icon name="edit" size={18} />
+          <span>Editing a saved workout. Changes save automatically.</span>
+        </div>
+      )}
+
       {items.length === 0 && (
         <div className="card empty-card">
           <p>No exercises yet. Add your first one below.</p>
@@ -131,6 +173,7 @@ export function WorkoutScreen({ id }: { id: string }) {
             item={item}
             active={active}
             prSetIds={prSetIds}
+            soundOn={active && settings.restSoundEnabled}
             onVideo={(i) => setVideoFor(i.exercise)}
             onMenu={setExMenu}
             onSetMenu={(set, index) => setSetMenu({ set, index })}
@@ -152,17 +195,16 @@ export function WorkoutScreen({ id }: { id: string }) {
       <NotesBox workoutId={workout.id} value={workout.notes} />
 
       {active ? (
-        <button
-          className="btn btn-primary btn-xl btn-block finish-btn"
-          onClick={() => {
-            haptic();
-            navigate(`/summary/${workout.id}`);
-          }}
-        >
+        <button className="btn btn-primary btn-xl btn-block finish-btn" onClick={finish}>
           Finish workout
         </button>
       ) : (
         <div className="stack">
+          {resumable && (
+            <button className="btn btn-secondary btn-lg btn-block" onClick={resume}>
+              <Icon name="play" /> Ended by accident? Resume workout
+            </button>
+          )}
           <button className="btn btn-secondary btn-lg btn-block" onClick={() => navigate(`/progress/compare/${workout.id}`)}>
             <Icon name="compare" /> Compare with previous {title}
           </button>
@@ -172,7 +214,7 @@ export function WorkoutScreen({ id }: { id: string }) {
         </div>
       )}
 
-      {active && <RestBar workout={workout} settings={settings} />}
+      {active && <RestBar workout={workout} settings={settings} label={restLabel} />}
 
       <ExercisePicker
         open={pickerOpen}

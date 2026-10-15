@@ -1,20 +1,17 @@
 import { useEffect, useRef } from 'react';
 import type { Settings, Workout } from '../../db/schema';
-import { startRest, stopRest } from '../../db/repo';
-import { Icon } from '../../ui/Icon';
 import { useNow } from '../../lib/hooks';
 import { formatClock } from '../../lib/format';
-import { haptic } from '../../lib/haptics';
-import { playChime, unlockAudio } from '../../lib/sound';
+import { playChime } from '../../lib/sound';
 
 /**
- * Manual rest stopwatch that counts up. Elapsed time is computed from the stored start
- * timestamp, so it stays right after the phone locks or the app is closed.
+ * Rest display. The rest starts automatically when a set is ticked and ends when the next
+ * set is ticked or "+ Set" is tapped. Elapsed time comes from the stored start timestamp,
+ * so it stays right after the phone locks or the app is closed.
  */
-export function RestBar({ workout, settings }: { workout: Workout; settings: Settings }) {
+export function RestBar({ workout, settings, label }: { workout: Workout; settings: Settings; label: string | null }) {
   const timer = workout.restTimer;
   const now = useNow(timer ? 250 : null);
-  const elapsed = timer ? Math.max(0, (now - timer.startedAt) / 1000) : 0;
   const startedAt = timer?.startedAt ?? null;
   const chimedFor = useRef<number | null>(null);
 
@@ -31,31 +28,16 @@ export function RestBar({ workout, settings }: { workout: Workout; settings: Set
     return () => window.clearTimeout(t);
   }, [startedAt, settings.restSoundEnabled, settings.restSoundSeconds]);
 
-  const toggle = () => {
-    haptic();
-    if (timer) {
-      void stopRest(workout.id);
-    } else {
-      if (settings.restSoundEnabled) unlockAudio();
-      void startRest(workout.id);
-    }
-  };
-
+  if (startedAt == null) return null;
   return (
-    <div className="dock">
-      <button className={`rest-btn${timer ? ' running' : ''}`} onClick={toggle} aria-live="polite">
-        {timer ? (
-          <>
-            <span className="rest-time">{formatClock(elapsed)}</span>
-            <span className="rest-label">Resting · tap to stop</span>
-          </>
-        ) : (
-          <>
-            <Icon name="timer" size={26} />
-            <span>Rest</span>
-          </>
-        )}
-      </button>
+    <div className="dock rest-dock">
+      <div className="rest-display" role="timer" aria-label="Rest time">
+        <span className="rest-time">{formatClock(Math.max(0, (now - startedAt) / 1000))}</span>
+        <span className="rest-label">
+          <span className="rest-title">Resting</span>
+          {label && <span className="rest-after">after {label}</span>}
+        </span>
+      </div>
     </div>
   );
 }

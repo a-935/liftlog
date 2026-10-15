@@ -96,9 +96,11 @@ export async function updateWorkout(id: string, patch: Partial<Pick<Workout, 'da
   await db.workouts.update(id, { ...patch, updatedAt: Date.now() });
 }
 
-/** Saves a finished workout: drops unticked sets and exercises left without sets. */
+/**
+ * Saves a finished workout: drops unticked sets and exercises left without sets.
+ * A rest still running after the last set is discarded (it isn't a rest between sets).
+ */
 export async function finishWorkout(id: string, finishedAt: number) {
-  await stopRest(id);
   await db.transaction('rw', db.workouts, db.workoutExercises, db.sets, async () => {
     const sets = await db.sets.where('workoutId').equals(id).toArray();
     await db.sets.bulkDelete(sets.filter((s) => !isLogged(s)).map((s) => s.id));
@@ -107,6 +109,11 @@ export async function finishWorkout(id: string, finishedAt: number) {
     await db.workoutExercises.bulkDelete(wes.filter((we) => !kept.has(we.id)).map((we) => we.id));
     await db.workouts.update(id, { finishedAt, restTimer: null, updatedAt: Date.now() });
   });
+}
+
+/** Puts a finished workout back in progress (e.g. it was ended by accident). */
+export async function reopenWorkout(id: string) {
+  await db.workouts.update(id, { finishedAt: null, restTimer: null, updatedAt: Date.now() });
 }
 
 /** Marks every unticked set that has reps as done (used from the finish summary). */
@@ -154,11 +161,12 @@ export async function addExerciseToWorkout(workoutId: string, exerciseId: string
 }
 
 export async function removeWorkoutExercise(weId: string): Promise<Undo> {
-  return db.transaction('rw', db.workoutExercises, db.sets, async () => {
+  return db.transaction('rw', db.workoutExercises, db.sets, db.workouts, async () => {
     const we = await db.workoutExercises.get(weId);
     const sets = await db.sets.where('workoutExerciseId').equals(weId).toArray();
     await db.sets.bulkDelete(sets.map((s) => s.id));
     await db.workoutExercises.delete(weId);
+    if (we) await cancelRestInTx(we.workoutId, sets.map((s) => s.id));
     return async () => {
       await db.transaction('rw', db.workoutExercises, db.sets, async () => {
         if (we) await db.workoutExercises.put(we);
@@ -184,12 +192,13 @@ export async function moveWorkoutExercise(weId: string, direction: -1 | 1) {
 
 // ---------- Sets ----------
 
-/** Adds a set pre-filled with the previous set's kg and reps. */
+/** Adds a set pre-filled with the previous set's kg and reps. Ends a running rest. */
 export async function addSet(weId: string, opts: { markDone: boolean }) {
   const now = Date.now();
-  await db.transaction('rw', db.workoutExercises, db.sets, async () => {
+  await db.transaction('rw', db.workoutExercises, db.sets, db.workouts, async () => {
     const we = await db.workoutExercises.get(weId);
     if (!we) return;
+    await stopRestInTx(we.workoutId, now);
     const sets = (await db.sets.where('workoutExerciseId').equals(weId).toArray()).sort((a, b) => a.order - b.order);
     const prev = sets[sets.length - 1];
     const set = emptySet(we, prev ? prev.order + 1 : 0, now);
@@ -209,7 +218,10 @@ export async function updateSet(id: string, patch: Partial<Pick<SetEntry, 'kg' |
 
 export async function deleteSet(id: string): Promise<Undo> {
   const set = await db.sets.get(id);
-  await db.sets.delete(id);
+  await db.transaction('rw', db.sets, db.workouts, async () => {
+    await db.sets.delete(id);
+    if (set) await cancelRestInTx(set.workoutId, [id]);
+  });
   return async () => {
     if (set) await db.sets.put(set);
   };
@@ -217,7 +229,8 @@ export async function deleteSet(id: string): Promise<Undo> {
 
 /**
  * Ticks a set. Empty fields take the suggested values (last time's numbers).
- * Ticking also stops a running rest stopwatch.
+ * During a live workout this also saves the running rest on the previous set
+ * and starts a new rest for this one.
  */
 export async function completeSet(id: string, fallback: { kg: number | null; reps: number | null }): Promise<boolean> {
   const now = Date.now();
@@ -227,29 +240,27 @@ export async function completeSet(id: string, fallback: { kg: number | null; rep
     if (!set || !reps) return false;
     await stopRestInTx(set.workoutId, now);
     await db.sets.update(id, { kg: set.kg ?? fallback.kg ?? 0, reps, done: true, doneAt: now, updatedAt: now });
+    const workout = await db.workouts.get(set.workoutId);
+    if (workout && workout.finishedAt === null) {
+      await db.workouts.update(set.workoutId, { restTimer: { startedAt: now, setId: id }, updatedAt: now });
+    }
     return true;
   });
 }
 
+/** Unticks a set; if its rest is running, that rest is cancelled (the tick was a mistake). */
 export async function uncompleteSet(id: string) {
-  await db.sets.update(id, { done: false, doneAt: null, updatedAt: Date.now() });
-}
-
-// ---------- Rest stopwatch (timestamp based, survives app switches) ----------
-
-export async function startRest(workoutId: string) {
-  const now = Date.now();
   await db.transaction('rw', db.sets, db.workouts, async () => {
-    const sets = await db.sets.where('workoutId').equals(workoutId).toArray();
-    const lastDone = sets.filter((s) => s.done && s.doneAt).sort((a, b) => b.doneAt! - a.doneAt!)[0];
-    await db.workouts.update(workoutId, { restTimer: { startedAt: now, setId: lastDone?.id ?? null }, updatedAt: now });
+    const set = await db.sets.get(id);
+    if (!set) return;
+    await db.sets.update(id, { done: false, doneAt: null, updatedAt: Date.now() });
+    await cancelRestInTx(set.workoutId, [id]);
   });
 }
 
-export async function stopRest(workoutId: string) {
-  await db.transaction('rw', db.sets, db.workouts, () => stopRestInTx(workoutId, Date.now()));
-}
+// ---------- Rest stopwatch (automatic, timestamp based, survives app switches) ----------
 
+/** Ends the running rest and records its length on the set it started from. */
 async function stopRestInTx(workoutId: string, now: number) {
   const workout = await db.workouts.get(workoutId);
   const timer = workout?.restTimer;
@@ -258,6 +269,13 @@ async function stopRestInTx(workoutId: string, now: number) {
     await db.sets.update(timer.setId, { restSeconds: Math.round((now - timer.startedAt) / 1000), updatedAt: now });
   }
   await db.workouts.update(workoutId, { restTimer: null, updatedAt: now });
+}
+
+/** Drops the running rest without recording it, if it belongs to one of `setIds`. */
+async function cancelRestInTx(workoutId: string, setIds: string[]) {
+  const workout = await db.workouts.get(workoutId);
+  const setId = workout?.restTimer?.setId;
+  if (setId && setIds.includes(setId)) await db.workouts.update(workoutId, { restTimer: null, updatedAt: Date.now() });
 }
 
 // ---------- Exercise library ----------

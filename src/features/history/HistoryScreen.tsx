@@ -37,7 +37,9 @@ export function HistoryScreen() {
                   <span className="history-date">{formatDate(workout.date)}</span>
                   <DayBadge type={workout.type} label={workoutTitle(workout)} />
                   {workout.finishedAt === null && <span className="flag flag-live">In progress</span>}
-                  <Icon name="chevron" size={20} />
+                  <span className="edit-pill">
+                    <Icon name="edit" size={16} /> {workout.finishedAt === null ? 'Open' : 'Edit'}
+                  </span>
                 </div>
                 <p className="history-exercises">{exerciseNames.length ? exerciseNames.join(' · ') : 'No exercises'}</p>
                 <p className="history-meta">

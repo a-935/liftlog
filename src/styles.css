@@ -1057,33 +1057,6 @@ button.list-row:active {
   margin-top: 24px;
 }
 
-.rest-btn {
-  width: 100%;
-  min-height: 68px;
-  border-radius: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: var(--surface-3);
-  color: var(--text);
-  font-size: 20px;
-  font-weight: 700;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  transition: background-color 0.25s, transform 0.12s var(--ease);
-}
-
-.rest-btn:active {
-  transform: scale(0.98);
-}
-
-.rest-btn.running {
-  justify-content: space-between;
-  padding: 0 22px;
-  background: #1d2410;
-  box-shadow: inset 0 0 0 2px var(--accent), 0 10px 30px rgba(0, 0, 0, 0.45);
-}
-
 .rest-time {
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
@@ -1359,9 +1332,8 @@ button.list-row:active {
   gap: 10px;
 }
 
-.history-top .icon {
+.history-top .edit-pill {
   margin-left: auto;
-  color: var(--text-3);
 }
 
 
@@ -1975,4 +1947,64 @@ button.list-row:active {
 .list-row .day-badge {
   min-width: 62px;
   justify-content: center;
+}
+
+/* ---------- Rest display, edit affordances ---------- */
+.rest-display {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 68px;
+  padding: 0 22px;
+  border-radius: 22px;
+  background: #1d2410;
+  box-shadow: inset 0 0 0 2px var(--accent), 0 10px 30px rgba(0, 0, 0, 0.45);
+  animation: rise-in 0.25s var(--ease);
+}
+
+.rest-display .rest-label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rest-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.rest-after {
+  font-size: 14px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.edit-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(94, 200, 255, 0.08);
+  border: 1px solid rgba(94, 200, 255, 0.25);
+  color: var(--pull);
+  font-size: 15px;
+  font-weight: 600;
 }
